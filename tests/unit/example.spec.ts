@@ -1,11 +1,15 @@
-import { mount } from '@vue/test-utils';
-import { describe, expect, test } from 'vitest';
+import { flushPromises, mount } from '@vue/test-utils';
+import { describe, expect, it } from 'vitest';
 
 import HomePage from '@/views/HomePage.vue';
 
 describe('HomePage.vue', () => {
-  test('renders home vue', () => {
+  it('explains how to configure Supabase when credentials are missing', async () => {
     const wrapper = mount(HomePage);
-    expect(wrapper.text()).toMatch('Ready to create an app?');
+    await flushPromises();
+
+    expect(wrapper.text()).toContain('Entre na sua conta');
+    expect(wrapper.text()).toContain('Conecte seu projeto Supabase');
+    expect(wrapper.get('button[type="submit"]').attributes('disabled')).toBeDefined();
   });
 });
