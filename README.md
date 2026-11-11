@@ -1,6 +1,21 @@
 # Finança Clara
 
-Aplicativo mobile-first de finanças pessoais feito com Ionic Vue, Supabase e Vue ApexCharts. Permite cadastrar e acompanhar receitas, despesas e metas financeiras, com gráficos e tema escuro.
+## Identificação
+
+- **Nome:** Isabella Saberkow
+- **Turma:** 3º ano de Informática para Web
+
+## Explicação do projeto
+
+O Finança Clara é um aplicativo mobile-first de controle financeiro pessoal. Com ele, cada pessoa pode registrar e organizar receitas e despesas, acompanhar o saldo e visualizar sua vida financeira em um dashboard.
+
+O aplicativo oferece cadastro, login e logout; criação, consulta, edição e exclusão de receitas e despesas; e um dashboard com totais, saldo, maior categoria de gastos, quantidade de lançamentos e comparação das despesas com as receitas. Os gráficos apresentam gastos por categoria e receitas e despesas ao longo dos meses. Como funcionalidades extras, permite criar e acompanhar metas financeiras e ativar um tema escuro que fica salvo no dispositivo.
+
+Os dados ficam armazenados no Supabase e são protegidos por políticas de segurança que limitam o acesso aos registros da própria pessoa usuária.
+
+- Calcular os indicadores e agrupar os dados corretamente para exibir gráficos por categoria e por mês, respeitando o período selecionado.
+- Adaptar os formulários, o dashboard e os gráficos a diferentes tamanhos de tela e manter o modo escuro entre visitas.
+- Validar os cálculos financeiros e o fluxo de navegação com testes automatizados.
 
 ## Requisitos
 
