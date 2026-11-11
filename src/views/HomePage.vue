@@ -1,6 +1,6 @@
 <template>
   <ion-page>
-    <ion-header v-if="user" class="app-header">
+    <ion-header v-if="user || demoMode" class="app-header">
       <ion-toolbar>
         <div class="topbar">
           <a class="brand" href="#" @click.prevent="currentSection = 'dashboard'">
@@ -8,7 +8,7 @@
             <span>finança<span class="brand-accent">clara</span></span>
           </a>
           <div class="topbar-actions">
-            <span class="user-email">{{ user.email }}</span>
+            <span class="user-email">{{ demoMode ? 'Modo demonstração' : user?.email }}</span>
             <button
               class="icon-button"
               type="button"
@@ -25,7 +25,7 @@
       </ion-toolbar>
     </ion-header>
 
-    <ion-content :fullscreen="!user">
+    <ion-content :fullscreen="!user && !demoMode">
       <div v-if="noticeMessage" class="notice" :class="`notice-${noticeType}`" role="status">
         <span>{{ noticeMessage }}</span>
         <button type="button" aria-label="Fechar aviso" @click="noticeMessage = ''">×</button>
@@ -36,7 +36,7 @@
         <span>Preparando seu espaço financeiro...</span>
       </div>
 
-      <main v-else-if="!user" class="auth-layout">
+      <main v-else-if="!user && !demoMode" class="auth-layout">
         <section class="auth-intro">
           <a class="brand brand-light" href="#">
             <span class="brand-mark"><ion-icon :icon="walletOutline" /></span>
@@ -77,7 +77,7 @@
               placeholder="voce@email.com"
               autocomplete="email"
               required
-              :disabled="!isSupabaseConfigured || authSubmitting"
+              :disabled="authSubmitting"
             />
 
             <label class="field-label" for="auth-password">Senha</label>
@@ -89,14 +89,10 @@
               :autocomplete="authMode === 'login' ? 'current-password' : 'new-password'"
               minlength="6"
               required
-              :disabled="!isSupabaseConfigured || authSubmitting"
+              :disabled="authSubmitting"
             />
 
-            <button
-              class="primary-button auth-submit"
-              type="submit"
-              :disabled="!isSupabaseConfigured || authSubmitting"
-            >
+            <button class="primary-button auth-submit" type="submit" :disabled="authSubmitting">
               <ion-spinner v-if="authSubmitting" name="crescent" />
               {{ authSubmitting ? 'Aguarde...' : authMode === 'login' ? 'Entrar' : 'Criar conta' }}
             </button>
@@ -108,11 +104,16 @@
               </button>
             </p>
 
+            <button class="demo-button" type="button" :disabled="authSubmitting" @click="startDemo">
+              <ion-icon :icon="sparklesOutline" />
+              Experimentar em modo demonstração
+            </button>
+
             <div v-if="!isSupabaseConfigured" class="setup-notice" role="alert">
-              <strong>Conecte seu projeto Supabase</strong>
+              <strong>Login real indisponível neste ambiente</strong>
               <span
                 >Copie <code>.env.example</code> para <code>.env.local</code>, preencha a URL e a chave anon/public do
-                projeto e reinicie o servidor.</span
+                projeto e reinicie o servidor. Para explorar o app agora, use o modo demonstração.</span
               >
             </div>
           </form>
@@ -151,6 +152,14 @@
         </nav>
 
         <section class="main-content">
+          <div v-if="demoMode" class="demo-banner" role="note">
+            <ion-icon :icon="sparklesOutline" />
+            <span
+              ><strong>Modo demonstração.</strong> Dados fictícios salvos somente neste navegador; não são enviados ao
+              Supabase.</span
+            >
+          </div>
+
           <div class="page-heading">
             <div>
               <span class="eyebrow">{{ currentMonthLabel }}</span>
@@ -161,12 +170,19 @@
               v-if="currentSection !== 'goals'"
               class="primary-button heading-action"
               type="button"
+              aria-label="Novo lançamento"
               @click="openNewTransaction"
             >
               <ion-icon :icon="addOutline" />
               <span>Novo lançamento</span>
             </button>
-            <button v-else class="primary-button heading-action" type="button" @click="openNewGoal">
+            <button
+              v-else
+              class="primary-button heading-action"
+              type="button"
+              aria-label="Nova meta"
+              @click="openNewGoal"
+            >
               <ion-icon :icon="addOutline" />
               <span>Nova meta</span>
             </button>
@@ -583,6 +599,7 @@ import {
   type FinanceGoal,
   type FinanceTransaction,
 } from '../domain/finance';
+import { createDemoData, DEMO_STORAGE_KEY, parseDemoData, type DemoData } from '../domain/demo';
 import { isSupabaseConfigured, supabase } from '../lib/supabase';
 
 type TransactionType = 'income' | 'expense';
@@ -601,6 +618,7 @@ const currentDate = new Date();
 const today = `${currentDate.getFullYear()}-${String(currentDate.getMonth() + 1).padStart(2, '0')}-${String(currentDate.getDate()).padStart(2, '0')}`;
 const selectedMonth = ref(`${currentDate.getFullYear()}-${String(currentDate.getMonth() + 1).padStart(2, '0')}`);
 const user = ref<User | null>(null);
+const demoMode = ref(false);
 const receitas = ref<FinanceTransaction[]>([]);
 const despesas = ref<FinanceTransaction[]>([]);
 const goals = ref<FinanceGoal[]>([]);
@@ -760,6 +778,21 @@ function clearFinanceData() {
 }
 
 async function loadFinance() {
+  if (demoMode.value) {
+    dataLoading.value = true;
+    try {
+      const data = parseDemoData(localStorage.getItem(DEMO_STORAGE_KEY));
+      if (!data) throw new Error('Os dados da demonstração não foram encontrados. Inicie uma nova demonstração.');
+      applyDemoData(data);
+      return true;
+    } catch (error) {
+      notify(error instanceof Error ? error.message : 'Não foi possível carregar os dados da demonstração.', 'error');
+      return false;
+    } finally {
+      dataLoading.value = false;
+    }
+  }
+
   const client = supabase;
   const currentUser = user.value;
   if (!client || !currentUser) return false;
@@ -788,9 +821,41 @@ async function loadFinance() {
   }
 }
 
+function applyDemoData(data: DemoData) {
+  receitas.value = data.receitas;
+  despesas.value = data.despesas;
+  goals.value = data.metas;
+}
+
+function saveDemoData(data: DemoData) {
+  localStorage.setItem(DEMO_STORAGE_KEY, JSON.stringify(data));
+}
+
+async function startDemo() {
+  try {
+    let data = parseDemoData(localStorage.getItem(DEMO_STORAGE_KEY));
+    if (!data) {
+      data = createDemoData();
+      saveDemoData(data);
+    }
+
+    demoMode.value = true;
+    user.value = null;
+    currentSection.value = 'dashboard';
+    const loaded = await loadFinance();
+    if (loaded) notify('Demonstração iniciada. Explore os lançamentos, as metas e o tema escuro.');
+    else demoMode.value = false;
+  } catch (error) {
+    notify(error instanceof Error ? error.message : 'Não foi possível iniciar a demonstração.', 'error');
+  }
+}
+
 async function submitAuth() {
   const client = supabase;
-  if (!client) return;
+  if (!client) {
+    notify('O Supabase não está configurado. Use “Experimentar em modo demonstração” para conhecer o app.');
+    return;
+  }
 
   const email = authForm.email.trim();
   if (!email || authForm.password.length < 6) {
@@ -827,6 +892,14 @@ function toggleAuthMode() {
 }
 
 async function signOut() {
+  if (demoMode.value) {
+    demoMode.value = false;
+    clearFinanceData();
+    currentSection.value = 'dashboard';
+    notify('Você saiu do modo demonstração. Seus dados continuam salvos neste navegador.');
+    return;
+  }
+
   const client = supabase;
   if (!client) return;
   try {
@@ -885,7 +958,7 @@ async function saveTransaction() {
   const client = supabase;
   const currentUser = user.value;
   const amount = Number(transactionForm.valor);
-  if (!client || !currentUser) return;
+  if (!demoMode.value && (!client || !currentUser)) return;
   if (
     !transactionForm.descricao.trim() ||
     !Number.isFinite(amount) ||
@@ -907,11 +980,27 @@ async function saveTransaction() {
       categoria: transactionForm.categoria,
       data: transactionForm.data,
     };
-    const result = editingTransactionId.value
-      ? await client.from(table).update(values).eq('id', editingTransactionId.value).eq('user_id', currentUser.id)
-      : await client.from(table).insert({ ...values, user_id: currentUser.id });
 
-    if (result.error) throw result.error;
+    if (demoMode.value) {
+      const data = parseDemoData(localStorage.getItem(DEMO_STORAGE_KEY));
+      if (!data) throw new Error('Os dados da demonstração não foram encontrados. Inicie uma nova demonstração.');
+      const transactions = data[table];
+      if (editingTransactionId.value) {
+        const index = transactions.findIndex((item) => item.id === editingTransactionId.value);
+        if (index === -1) throw new Error('O lançamento não foi encontrado.');
+        transactions[index] = { ...transactions[index], ...values };
+      } else {
+        transactions.push({ id: `demo-${crypto.randomUUID()}`, ...values });
+      }
+      saveDemoData(data);
+    } else {
+      if (!client || !currentUser) return;
+      const result = editingTransactionId.value
+        ? await client.from(table).update(values).eq('id', editingTransactionId.value).eq('user_id', currentUser.id)
+        : await client.from(table).insert({ ...values, user_id: currentUser.id });
+      if (result.error) throw result.error;
+    }
+
     closeTransactionModal();
     if (await loadFinance()) notify(wasEditing ? 'Lançamento atualizado.' : 'Lançamento adicionado.');
   } catch (error) {
@@ -928,12 +1017,26 @@ function transactionFormCategoriesValid(): boolean {
 async function deleteTransaction(transaction: FinanceTransaction, type: TransactionType) {
   const client = supabase;
   const currentUser = user.value;
-  if (!client || !currentUser || !window.confirm(`Excluir o lançamento "${transaction.descricao}"?`)) return;
+  if (
+    (!demoMode.value && (!client || !currentUser)) ||
+    !window.confirm(`Excluir o lançamento "${transaction.descricao}"?`)
+  ) {
+    return;
+  }
 
   try {
     const table = type === 'income' ? 'receitas' : 'despesas';
-    const { error } = await client.from(table).delete().eq('id', transaction.id).eq('user_id', currentUser.id);
-    if (error) throw error;
+    if (demoMode.value) {
+      const data = parseDemoData(localStorage.getItem(DEMO_STORAGE_KEY));
+      if (!data) throw new Error('Os dados da demonstração não foram encontrados. Inicie uma nova demonstração.');
+      data[table] = data[table].filter((item) => item.id !== transaction.id);
+      saveDemoData(data);
+    } else {
+      if (!client || !currentUser) return;
+      const { error } = await client.from(table).delete().eq('id', transaction.id).eq('user_id', currentUser.id);
+      if (error) throw error;
+    }
+
     if (await loadFinance()) notify('Lançamento excluído.');
   } catch (error) {
     notify(error instanceof Error ? error.message : 'Não foi possível excluir o lançamento.', 'error');
@@ -971,7 +1074,7 @@ async function saveGoal() {
   const currentUser = user.value;
   const target = Number(goalForm.valor_alvo);
   const current = Number(goalForm.valor_atual);
-  if (!client || !currentUser) return;
+  if (!demoMode.value && (!client || !currentUser)) return;
   if (
     !goalForm.descricao.trim() ||
     !Number.isFinite(target) ||
@@ -992,11 +1095,24 @@ async function saveGoal() {
       valor_atual: current,
       prazo: goalForm.prazo,
     };
-    const result = editingGoalId.value
-      ? await client.from('metas').update(values).eq('id', editingGoalId.value).eq('user_id', currentUser.id)
-      : await client.from('metas').insert({ ...values, user_id: currentUser.id });
-
-    if (result.error) throw result.error;
+    if (demoMode.value) {
+      const data = parseDemoData(localStorage.getItem(DEMO_STORAGE_KEY));
+      if (!data) throw new Error('Os dados da demonstração não foram encontrados. Inicie uma nova demonstração.');
+      if (editingGoalId.value) {
+        const index = data.metas.findIndex((item) => item.id === editingGoalId.value);
+        if (index === -1) throw new Error('A meta não foi encontrada.');
+        data.metas[index] = { ...data.metas[index], ...values };
+      } else {
+        data.metas.push({ id: `demo-${crypto.randomUUID()}`, ...values });
+      }
+      saveDemoData(data);
+    } else {
+      if (!client || !currentUser) return;
+      const result = editingGoalId.value
+        ? await client.from('metas').update(values).eq('id', editingGoalId.value).eq('user_id', currentUser.id)
+        : await client.from('metas').insert({ ...values, user_id: currentUser.id });
+      if (result.error) throw result.error;
+    }
     const wasEditing = Boolean(editingGoalId.value);
     closeGoalModal();
     if (await loadFinance()) notify(wasEditing ? 'Meta atualizada.' : 'Meta criada.');
@@ -1010,11 +1126,22 @@ async function saveGoal() {
 async function deleteGoal(goal: FinanceGoal) {
   const client = supabase;
   const currentUser = user.value;
-  if (!client || !currentUser || !window.confirm(`Excluir a meta "${goal.descricao}"?`)) return;
+  if ((!demoMode.value && (!client || !currentUser)) || !window.confirm(`Excluir a meta "${goal.descricao}"?`)) {
+    return;
+  }
 
   try {
-    const { error } = await client.from('metas').delete().eq('id', goal.id).eq('user_id', currentUser.id);
-    if (error) throw error;
+    if (demoMode.value) {
+      const data = parseDemoData(localStorage.getItem(DEMO_STORAGE_KEY));
+      if (!data) throw new Error('Os dados da demonstração não foram encontrados. Inicie uma nova demonstração.');
+      data.metas = data.metas.filter((item) => item.id !== goal.id);
+      saveDemoData(data);
+    } else {
+      if (!client || !currentUser) return;
+      const { error } = await client.from('metas').delete().eq('id', goal.id).eq('user_id', currentUser.id);
+      if (error) throw error;
+    }
+
     if (await loadFinance()) notify('Meta excluída.');
   } catch (error) {
     notify(error instanceof Error ? error.message : 'Não foi possível excluir a meta.', 'error');
@@ -1313,6 +1440,35 @@ ion-toolbar {
 
 .main-content {
   min-width: 0;
+}
+
+.demo-banner {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  margin-bottom: 17px;
+  padding: 11px 13px;
+  border: 1px solid #eddfc9;
+  border-radius: 11px;
+  background: #fff9ef;
+  color: #765d39;
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+.demo-banner ion-icon {
+  flex: 0 0 auto;
+  font-size: 16px;
+}
+
+.demo-banner strong {
+  font-weight: 700;
+}
+
+.dark .demo-banner {
+  border-color: #66573e;
+  background: #352f24;
+  color: #e5cd9f;
 }
 
 .page-heading {
@@ -2159,6 +2315,34 @@ ion-toolbar {
 }
 
 .auth-switch button:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.demo-button {
+  display: flex;
+  width: 100%;
+  min-height: 44px;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  margin-top: 12px;
+  border: 1px solid var(--green);
+  border-radius: 11px;
+  background: transparent;
+  color: var(--green-dark);
+  cursor: pointer;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 650;
+  transition: background 0.18s ease;
+}
+
+.demo-button:hover:not(:disabled) {
+  background: var(--green-light);
+}
+
+.demo-button:disabled {
   cursor: not-allowed;
   opacity: 0.6;
 }

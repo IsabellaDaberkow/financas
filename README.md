@@ -22,6 +22,18 @@ Os dados ficam armazenados no Supabase e são protegidos por políticas de segur
 - Node.js e npm
 - Projeto Supabase
 
+## Demonstração sem Supabase
+
+Para experimentar o aplicativo sem configurar uma conta Supabase:
+
+1. Inicie o projeto com `npm run dev`.
+2. Na tela inicial, clique em **Experimentar em modo demonstração**.
+3. Use o menu para abrir o dashboard, consultar e editar lançamentos, criar metas e ativar o tema escuro.
+
+O modo demonstração usa dados fictícios e permite cadastrar, editar e excluir lançamentos e metas. As alterações ficam salvas somente no armazenamento local deste navegador; elas não são enviadas ao Supabase. Use **Sair** para retornar à tela inicial e, depois, clique novamente em **Experimentar em modo demonstração** para continuar a demonstração.
+
+Para usar o login e salvar dados no Supabase, siga a configuração abaixo.
+
 ## Configuração
 
 1. Instale as dependências com `npm install`.

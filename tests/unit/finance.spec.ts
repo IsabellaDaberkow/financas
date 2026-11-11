@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
+import { createDemoData, parseDemoData } from '../../src/domain/demo';
 import { filterByMonth, formatCurrency, getDashboardMetrics, type FinanceTransaction } from '../../src/domain/finance';
 
 const transaction = (id: string, valor: number, categoria: string, data: string) => ({
@@ -11,6 +12,22 @@ const transaction = (id: string, valor: number, categoria: string, data: string)
 });
 
 describe('finance calculations', () => {
+  it('provides interactive demo transactions and goals for the selected month', () => {
+    const data = createDemoData(new Date(2026, 10, 11));
+
+    expect(filterByMonth(data.receitas, '2026-11')).toHaveLength(2);
+    expect(filterByMonth(data.despesas, '2026-11')).toHaveLength(4);
+    expect(data.metas).toHaveLength(2);
+  });
+
+  it('validates demo data saved in browser storage', () => {
+    const data = createDemoData(new Date(2026, 10, 11));
+
+    expect(parseDemoData(JSON.stringify(data))).toEqual(data);
+    expect(parseDemoData(null)).toBeNull();
+    expect(() => parseDemoData('invalid')).toThrow('Os dados da demonstração estão inválidos');
+  });
+
   it('filters transactions by selected calendar month', () => {
     const transactions: FinanceTransaction[] = [
       transaction('a', 100, 'Salário', '2026-04-10'),
