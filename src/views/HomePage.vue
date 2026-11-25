@@ -868,7 +868,11 @@ async function submitAuth() {
     const result =
       authMode.value === 'login'
         ? await client.auth.signInWithPassword({ email, password: authForm.password })
-        : await client.auth.signUp({ email, password: authForm.password });
+        : await client.auth.signUp({
+            email,
+            password: authForm.password,
+            options: { emailRedirectTo: window.location.origin },
+          });
 
     if (result.error) {
       notify(result.error.message, 'error');

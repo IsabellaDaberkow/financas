@@ -39,7 +39,8 @@ Para usar o login e salvar dados no Supabase, siga a configuração abaixo.
 1. Instale as dependências com `npm install`.
 2. No Supabase, abra **SQL Editor**, execute o conteúdo de [`supabase/schema.sql`](./supabase/schema.sql) e confirme que as tabelas `receitas`, `despesas` e `metas` foram criadas.
 3. Copie `.env.example` para `.env.local` e informe a URL do projeto e a chave **anon/public** em `VITE_SUPABASE_URL` e `VITE_SUPABASE_ANON_KEY`. Não coloque uma chave `service_role` no aplicativo.
-4. Reinicie o servidor depois de alterar as variáveis de ambiente.
+4. Em **Authentication → URL Configuration**, configure o **Site URL** como `http://localhost:5173` e adicione `http://localhost:5173` e `http://localhost` à lista de **Redirect URLs**. A primeira URL atende o navegador durante o desenvolvimento; a segunda, o aplicativo Android.
+5. Reinicie o servidor depois de alterar as variáveis de ambiente.
 
 ```sh
 npm run dev
